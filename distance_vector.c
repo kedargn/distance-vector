@@ -17,6 +17,11 @@ void read_config_file(){
 	char *line, *ip_address, *neighbour;
 
 	fp = fopen(config_file_name,"r");
+	if(fp == NULL)
+	{
+		printf("Could not open the Configuration file.\n");
+		exit(0);
+	}
 	line = (char*)malloc(25);
 	while((ch = getc(fp))!=EOF){
 		if(ch != '\n'){
