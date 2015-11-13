@@ -6,25 +6,25 @@ char config_file_name[100];
 int ttl, port_no, period, split_horizon;     //split horizon can be either 1 or 0
 long infinity;
 
-
-
-
-
 void read_config_file(){
 	FILE *fp;
 	int i = 0;
 	char ch;
 	char *line, *ip_address, *neighbour;
 
-	fp = fopen(config_file_name,"r");
+	if((fp = fopen(config_file_name,"r"))==NULL){
+		printf("Couldn't open file\n");
+		exit(1);
+	}
 	line = (char*)malloc(25);
-	while((ch = getc(fp))!=EOF){
-		if(ch != '\n'){
+  
+	do{
+		ch = getc(fp);
+		if((ch != '\n') && (ch!=EOF)){
       line[i++] = ch;
 		} 
 		else 
 		{
-			//printf("line is %s\n", line);
 			ip_address = strtok(line, " ");
 			neighbour = strtok(NULL, " ");
 			printf("ip_address %s & neighbour %s\n", ip_address, neighbour);
@@ -32,7 +32,7 @@ void read_config_file(){
 			line = (char*)malloc(25);
 			i = 0;
 		}
-	}
+	}while(ch!=EOF);
 } 
 
 int main(int argc, char* argv[]){
