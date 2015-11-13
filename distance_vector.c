@@ -3,7 +3,7 @@
 #include<string.h>
 
 char config_file_name[100];
-int ttl, port_no, period, split_horizon;     //split horizon can be either 1 or 0
+int ttl, port_no, period, split_horizon,node_count=1;     //split horizon can be either 1 or 0
 long infinity;
 
 
@@ -22,22 +22,16 @@ void read_config_file(){
 		printf("Could not open the Configuration file.\n");
 		exit(0);
 	}
-	line = (char*)malloc(25);
-	while((ch = getc(fp))!=EOF){
-		if(ch != '\n'){
-      line[i++] = ch;
-		} 
-		else 
-		{
-			//printf("line is %s\n", line);
-			ip_address = strtok(line, " ");
-			neighbour = strtok(NULL, " ");
-			printf("ip_address %s & neighbour %s\n", ip_address, neighbour);
-			free(line);
-			line = (char*)malloc(25);
-			i = 0;
-		}
+	line = (char*)malloc(256);
+	while(fgets(line, 256, fp) != NULL)
+	{
+		ip_address = strtok(line, " ");
+		neighbour = strtok(NULL, "\0");
+		printf("ip_address %s\nneighbour %s\n", ip_address, neighbour);
+		node_count++;
+		
 	}
+	printf("Total nodes in this network is %d\n",node_count);
 } 
 
 int main(int argc, char* argv[]){
