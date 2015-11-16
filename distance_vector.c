@@ -170,10 +170,75 @@ void intialise_graph(){
 	print_graph();
 }
 
+void prepare_advertisement( unsigned char* advertise_contents){
+	int i, j = 0, k=0, x=0, y=0;
+	unsigned char transform;
+	long path_cost;
+	unsigned int p;
+	unsigned char temp_ip_addr[15], part[3];
+	for(i=0;i<node_count;i++){
+		memcpy(temp_ip_addr,routing_table[i].destination, strlen(routing_table[i].destination));
+    // /printf("%s\n", temp_ip_addr);
+    while((temp_ip_addr[j])!='\0'){
+    	if((temp_ip_addr[j]) != '.'){
+       part[k++] = temp_ip_addr[j];
+       j++;
+      }
+      if(temp_ip_addr[j]=='\0' || temp_ip_addr[j] == '.')
+      {
+      	p = atoi(part);
+      	advertise_contents[x++] = p;
+      	//printf("part is %u\n", p);
+      	j++;
+      	bzero(part,3);
+      	k=0;
+      }
+    }
+    path_cost = routing_table[i].cost;
+    // transform = path_cost & 4278190080;
+    advertise_contents[x++] = (path_cost & 4278190080)>>24;
+    //printf("%u\n", advertise_contents[x-1]);
+    advertise_contents[x++] = (path_cost & 16711680)>>16;
+    //printf("%u\n", advertise_contents[x-1]);
+    advertise_contents[x++] = (path_cost & 65280)>>8;
+    //printf("%u\n", advertise_contents[x-1]);
+    advertise_contents[x++] = path_cost & 255;
+    //printf("%u\n", advertise_contents[x-1]);
+    bzero(temp_ip_addr, 15);
+    j=0;
+    k=0;
+	}
+}
+
+void interpret_advertisement(unsigned char *advertise_contents){
+	int i=0;
+	unsigned char ip[15];
+	unsigned long get_cost=0, temp=0;
+	printf("Received data is\n");
+	while(i<(node_count*8)){
+		sprintf(ip,"%u.%u.%u.%u",advertise_contents[i],advertise_contents[i+1],advertise_contents[i+2],advertise_contents[i+3]);
+		printf("ip is %s -->", ip);
+    temp = advertise_contents[i+4];
+    get_cost = (temp << 24);
+    temp = advertise_contents[i+5];
+    get_cost = (temp<<16) | get_cost;
+    temp = advertise_contents[i+6];
+    get_cost = (temp<<8) | get_cost;
+    temp = advertise_contents[i+7];
+    get_cost = (temp) | get_cost;
+    printf("%lu\n",get_cost);
+		i+=8;
+	}
+}
+
 void intialise(){
+	unsigned char *advertise_contents;
   allocate();
   intialise_graph();
   bellman_ford();
+  advertise_contents = (char*)calloc(node_count*8,sizeof(char));
+  prepare_advertisement(advertise_contents);
+  interpret_advertisement(advertise_contents);
 } 
 
 int main(int argc, char* argv[]){
