@@ -300,9 +300,9 @@ void receive_advertisement(){
 	int i, result;
 	char received_advertisement[node_count*8];	
 	for(;;){
-		printf("Waiting to receive update\n")
+		printf("Waiting to receive update\n");
 		recvfrom(sock, received_advertisement, node_count*8, 0, (struct sockaddr*)&neighbour_addr, &neighbour_addr_length);
-		printf("***UPDATE RECEIVED***\n")
+		printf("***UPDATE RECEIVED***\n");
 		interpret_advertisement(received_advertisement);
 	}
 }
