@@ -6,7 +6,7 @@
 #include<arpa/inet.h>
 
 char config_file_name[100];
-int ttl, port_no, period, split_horizon, node_count=0, graph[100][100], *dist, *pi;     //split horizon can be either 1 or 0
+int ttl, port_no, period, split_horizon, node_count=0, graph[100][100], *dist, *pi, is_routing_table_changed = 0;     //split horizon can be either 1 or 0
 long infinity;
 
 int n_port_no; //TODO: temp variable. Remove this
@@ -174,6 +174,7 @@ void bellman_ford(){
 	  		if(dist[j] > dist[i]+graph[i][j]){
 	  			dist[j] = dist[i]+graph[i][j];
 	  			pi[j] = i;
+	  			is_routing_table_changed = 1;
 	  		}
 	  	}
 	  }
@@ -346,8 +347,14 @@ void update(){
 	    send_advertisment(received_advertisement);
 		}else{
 			interpret_advertisement(received_advertisement);   //TODO:Send triggered update only if routing table has changed.
-			prepare_advertisement(received_advertisement);
-	    send_advertisment(received_advertisement);
+			if(is_routing_table_changed==1){
+				printf("Routing table HAS changed\n");
+				is_routing_table_changed=0;
+				prepare_advertisement(received_advertisement);
+		    send_advertisment(received_advertisement);
+	    }else{
+	    	printf("Routing table NOT hanged\n");
+	    }
 		}
 	}
 }
