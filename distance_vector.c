@@ -299,12 +299,10 @@ void send_advertisment(char *advertise_contents){
 void receive_advertisement(){
 	int i, result;
 	char received_advertisement[node_count*8];	
-	for(;;){
-		printf("Waiting to receive update\n");
-		recvfrom(sock, received_advertisement, node_count*8, 0, (struct sockaddr*)&neighbour_addr, &neighbour_addr_length);
-		printf("***UPDATE RECEIVED***\n");
-		interpret_advertisement(received_advertisement);
-	}
+	printf("Waiting to receive update\n");
+	recvfrom(sock, received_advertisement, node_count*8, 0, (struct sockaddr*)&neighbour_addr, &neighbour_addr_length);
+	printf("***UPDATE RECEIVED***\n");
+	interpret_advertisement(received_advertisement);
 }
 
 void socket_creation(){
@@ -329,6 +327,31 @@ void intialise(){
   //interpret_advertisement(advertise_contents);
 } 
 
+/*Do receive for 30 seconds
+ if data received then update graph and bellman
+ then send the updates
+ */
+void update(){
+	int result;
+	struct timeval period;
+	char received_advertisement[node_count*8];
+	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char*)&period, sizeof(struct timeval));
+  for(;;){
+		bzero(received_advertisement, node_count*8);
+	  period.tv_sec = 30;
+	  period.tv_usec = 0;		
+		result = recvfrom(sock, received_advertisement, node_count*8, 0, (struct sockaddr*)&neighbour_addr, &neighbour_addr_length);
+		if(result<0){
+	    prepare_advertisement(received_advertisement);
+	    send_advertisment(received_advertisement);
+		}else{
+			interpret_advertisement(received_advertisement);   //TODO:Send triggered update only if routing table has changed.
+			prepare_advertisement(received_advertisement);
+	    send_advertisment(received_advertisement);
+		}
+	}
+}
+
 int main(int argc, char* argv[]){
 	if(argc!=8){
 		printf("Invalid number of arguments\n. Please pass 'Config_file_name port_no TTL infinity period split_horizon'\n");
@@ -344,6 +367,7 @@ int main(int argc, char* argv[]){
   printf(" Config file name %s\n port no %d\nTTL %d\ninfinity %ld\nperiod %d\nsplit_horizon %d n_port_no %d\n", config_file_name, port_no, ttl, infinity, period, split_horizon, n_port_no);
   read_config_file();
   intialise();
+  update();
 }
 
 void create_socket()
