@@ -289,7 +289,7 @@ void send_advertisment(char *advertise_contents){
   	if(neighbours[i].is_neighbour == 1){
   		neighbour_addr.sin_family = PF_INET;
   		neighbour_addr.sin_addr.s_addr = inet_addr(neighbours[i].ip_addr);
-  		neighbour_addr.sin_port = htons(65001);
+  		neighbour_addr.sin_port = htons(port_no);
   		sendto(sock, advertise_contents, 8*node_count, 0, (struct sockaddr*)&neighbour_addr, sizeof(neighbour_addr_length));
   		printf("sendto to ip address %s is %d\n", neighbours[i].ip_addr, result);
   	}
