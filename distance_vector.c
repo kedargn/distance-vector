@@ -336,11 +336,11 @@ void update(){
 	int result;
 	struct timeval period;
 	char received_advertisement[node_count*8];
+	period.tv_sec = 10;
+	period.tv_usec = 0;	
 	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char*)&period, sizeof(struct timeval));
   for(;;){
-		bzero(received_advertisement, node_count*8);
-	  period.tv_sec = 30;
-	  period.tv_usec = 0;		
+		bzero(received_advertisement, node_count*8);	
 		result = recvfrom(sock, received_advertisement, node_count*8, 0, (struct sockaddr*)&neighbour_addr, &neighbour_addr_length);
 		if(result<0){
 	    prepare_advertisement(received_advertisement);
