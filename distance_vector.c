@@ -1,10 +1,24 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
+#include<unistd.h>
+#include<sys/socket.h>
+#include<arpa/inet.h>
 
 char config_file_name[100];
-int ttl, port_no, period, split_horizon, node_count=1, graph[100][100], *dist, *pi;     //split horizon can be either 1 or 0
+int ttl, port_no, period, split_horizon, node_count=0, graph[100][100], *dist, *pi;     //split horizon can be either 1 or 0
 long infinity;
+
+int n_port_no; //TODO: temp variable. Remove this
+
+struct sockaddr_in server_addr;
+struct sockaddr_in neighbour_addr;
+int sock, port;
+int neighbour_addr_length;
+
+void create_socket();
+void bind_socket();
+void check_result(char*, int);
 
 struct neighbouring_routers{
  char ip_addr[15];
@@ -42,14 +56,21 @@ void read_config_file(){
 		exit(0);
 	}
 	line = (char*)malloc(256);
-  strcpy(neighbours[0].ip_addr, "120.0.0.1");
-  neighbours[0].is_neighbour = -1;
+  // strcpy(neighbours[0].ip_addr, "120.0.0.1");
+  // neighbours[0].is_neighbour = -1;
 	while(fgets(line, 256, fp) != NULL)
 	{
 		ip_address = strtok(line, " ");
 		neighbour = strtok(NULL, "\0");
 		strcpy(neighbours[node_count].ip_addr, ip_address);
-		neighbours[node_count].is_neighbour = (strncmp(neighbour, "yes", 3) == 0 ? 1: 0);
+		if(node_count == 0)
+		{
+			neighbours[node_count].is_neighbour = -1;
+		}
+		else
+		{
+			neighbours[node_count].is_neighbour = (strncmp(neighbour, "yes", 3) == 0 ? 1: 0);
+		}
 		printf("ip_address %s\nneighbour %s\n", ip_address, neighbour);
 		node_count++;		
 	}
@@ -64,6 +85,7 @@ void print_header(){
 	}
 	printf("\n");
 }
+
 void print_array(){
  int i;
  printf("Distance Array\n");
@@ -210,8 +232,18 @@ void prepare_advertisement( unsigned char* advertise_contents){
 	}
 }
 
+int get_vertex_number(char *ip){
+	int  i;
+	for(i=0;i<node_count;i++){
+		if(strcmp(ip,neighbours[i].ip_addr)==0){
+      return i;
+		}
+	}
+	return -1;
+}
+
 void interpret_advertisement(unsigned char *advertise_contents){
-	int i=0;
+	int i=0, source_node, destination_node;
 	unsigned char ip[15];
 	unsigned long get_cost=0, temp=0;
 	printf("Received data is\n");
@@ -227,8 +259,59 @@ void interpret_advertisement(unsigned char *advertise_contents){
     temp = advertise_contents[i+7];
     get_cost = (temp) | get_cost;
     printf("%lu\n",get_cost);
+    if(i==0){
+    	source_node = get_vertex_number(ip);
+    	if(source_node == -1){
+    		printf("**ERROR*get_vertex_number retuned -1\n");
+    		exit(1);
+    	}
+    	graph[source_node][source_node] = 0;
+    	printf("source node is %d\n", source_node);
+    }
+    else
+    {
+    	destination_node = get_vertex_number(ip);
+    	if(source_node == -1){
+    		printf("**ERROR*get_vertex_number retuned -1\n");
+    		exit(1);
+    	}
+    	printf("destination_node is %d\n", destination_node);
+    	graph[source_node][destination_node] = get_cost;
+    }
 		i+=8;
 	}
+	bellman_ford();
+}
+
+void send_advertisment(char *advertise_contents){
+  int i, result;
+  for(i=0;i<node_count;i++){
+  	if(neighbours[i].is_neighbour == 1){
+  		neighbour_addr.sin_family = PF_INET;
+  		neighbour_addr.sin_addr.s_addr = inet_addr(neighbours[i].ip_addr);
+  		neighbour_addr.sin_port = htons(65001);
+  		sendto(sock, advertise_contents, 8*node_count, 0, (struct sockaddr*)&neighbour_addr, sizeof(neighbour_addr_length));
+  		printf("sendto to ip address %s is %d\n", neighbours[i].ip_addr, result);
+  	}
+  }	
+}
+
+void receive_advertisement(){
+	int i, result;
+	char received_advertisement[node_count*8];	
+	for(;;){
+		recvfrom(sock, received_advertisement, node_count*8, 0, (struct sockaddr*)&neighbour_addr, &neighbour_addr_length);
+		interpret_advertisement(received_advertisement);
+	}
+}
+
+void socket_creation(){
+ server_addr.sin_family = AF_INET;
+ server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+ server_addr.sin_port = htons(port_no);
+ neighbour_addr_length = sizeof(neighbour_addr);
+ create_socket();
+ bind_socket();
 }
 
 void intialise(){
@@ -238,11 +321,14 @@ void intialise(){
   bellman_ford();
   advertise_contents = (char*)calloc(node_count*8,sizeof(char));
   prepare_advertisement(advertise_contents);
-  interpret_advertisement(advertise_contents);
+  socket_creation();
+  send_advertisment(advertise_contents);
+  receive_advertisement();
+  //interpret_advertisement(advertise_contents);
 } 
 
 int main(int argc, char* argv[]){
-	if(argc!=7){
+	if(argc!=8){
 		printf("Invalid number of arguments\n. Please pass 'Config_file_name port_no TTL infinity period split_horizon'\n");
 		exit(1);
 	}
@@ -252,7 +338,42 @@ int main(int argc, char* argv[]){
   infinity = atoi(argv[4]);
   period = atoi(argv[5]);
   split_horizon = atoi(argv[6]);
-  printf(" Config file name %s\n port no %d\nTTL %d\ninfinity %ld\nperiod %d\nsplit_horizon %d\n", config_file_name, port_no, ttl, infinity, period, split_horizon);
+  n_port_no = atoi(argv[7]);
+  printf(" Config file name %s\n port no %d\nTTL %d\ninfinity %ld\nperiod %d\nsplit_horizon %d n_port_no %d\n", config_file_name, port_no, ttl, infinity, period, split_horizon, n_port_no);
   read_config_file();
   intialise();
+}
+
+void create_socket()
+{
+ sock = socket(PF_INET, SOCK_DGRAM, 0);
+ check_result("socket creation", sock);
+}
+
+/**
+ * Binds socket.
+ * If bind is unsuccesful then program will exit
+ **/
+void bind_socket()
+{
+ int bind_result;
+ bind_result = bind(sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
+ check_result("Socket binding", bind_result);
+}
+
+/**
+ * helper function to check results of socket creation and bind
+ **/
+void check_result(char* msg, int result)
+{
+if(result<0)
+ {
+  printf("%s failed with value %d\n",msg, result);
+  perror(msg);
+  exit(0);
+ }
+ else
+ {
+  printf("%s successful with value %d\n", msg, result);
+ }
 }
