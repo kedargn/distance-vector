@@ -1,12 +1,15 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<unistd.h>
-#include<sys/socket.h>
-#include<arpa/inet.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <arpa/inet.h>
+#include <error.h>
+#include <netdb.h>
 
 char config_file_name[100];
-int ttl, port_no, period, split_horizon, node_count=0, graph[100][100], *dist, *pi, is_routing_table_changed = 0;     //split horizon can be either 1 or 0
+int ttl, port_no, period, split_horizon, node_count=1, graph[100][100], *dist, *pi, is_routing_table_changed = 0;     //split horizon can be either 1 or 0
 long infinity;
 
 int n_port_no; //TODO: temp variable. Remove this
@@ -43,6 +46,32 @@ void print_neighbours(){
 	}
 }
 
+void get_ip_address(){
+	struct addrinfo hints, *res;
+  int errcode;
+  char addrstr[100];
+  char hostname[50];
+  if(gethostname(hostname, 50)!=0){
+   printf("error in getting hostname, errno ");
+  }
+  printf("hostname is %s\n", hostname);
+
+  memset (&hints, 0, sizeof (hints));
+  hints.ai_family = PF_INET;
+  hints.ai_socktype = SOCK_DGRAM;
+
+  if((getaddrinfo(hostname, NULL, &hints, &res))!=0){
+  	perror("getaddrinfo error: ");
+  	//exit(1);
+  }
+  inet_ntop(AF_INET, res->ai_addr->sa_data, addrstr, INET_ADDRSTRLEN);
+  //if(addrstr!=NULL){
+  	//printf("error while fetching ip address\n");
+  	//exit(1);
+  //}
+  printf("My ip adress is %s\n",addrstr);
+}
+
 void read_config_file(){
 	FILE *fp;
 	int i = 0;
@@ -56,8 +85,9 @@ void read_config_file(){
 		exit(0);
 	}
 	line = (char*)malloc(256);
-  // strcpy(neighbours[0].ip_addr, "120.0.0.1");
-  // neighbours[0].is_neighbour = -1;
+  strcpy(neighbours[0].ip_addr, "120.0.0.1");
+  neighbours[0].is_neighbour = -1;
+  strcpy(neighbours[0].ip_addr, get_ip_address());
 	while(fgets(line, 256, fp) != NULL)
 	{
 		ip_address = strtok(line, " ");
@@ -150,11 +180,15 @@ void update_routing_table(){
   		strcpy(routing_table[i].next_hop,"Null          ");
   	}
   	else
-  	{
+  	{ 
   		strcpy(routing_table[i].next_hop, neighbours[pi[i]].ip_addr);
   	}
   	routing_table[i].cost = dist[i];
   	routing_table[i].ttl = ttl;
+  	if((strcmp(routing_table[i].next_hop, neighbours[pi[i]].ip_addr)!=0)||(routing_table[i].cost != dist[i]))
+		{
+     is_routing_table_changed=1;
+	  }
   }
   print_routing_table();
 }
@@ -174,7 +208,6 @@ void bellman_ford(){
 	  		if(dist[j] > dist[i]+graph[i][j]){
 	  			dist[j] = dist[i]+graph[i][j];
 	  			pi[j] = i;
-	  			is_routing_table_changed = 1;
 	  		}
 	  	}
 	  }
