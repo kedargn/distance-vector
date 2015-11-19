@@ -8,7 +8,7 @@
 #include <error.h>
 #include <netdb.h>
 
-char config_file_name[100];
+char config_file_name[100], my_ip[50];
 int ttl, port_no, period, split_horizon, node_count=1, graph[100][100], *dist, *pi, is_routing_table_changed = 0;     //split horizon can be either 1 or 0
 long infinity;
 
@@ -47,29 +47,36 @@ void print_neighbours(){
 }
 
 void get_ip_address(){
-	struct addrinfo hints, *res;
+  struct addrinfo hints, *res;
   int errcode;
-  char addrstr[100];
   char hostname[50];
+  struct sockaddr_in *addr;
+
   if(gethostname(hostname, 50)!=0){
    printf("error in getting hostname, errno ");
   }
   printf("hostname is %s\n", hostname);
 
   memset (&hints, 0, sizeof (hints));
-  hints.ai_family = PF_INET;
+  hints.ai_family = AF_UNSPEC; 
   hints.ai_socktype = SOCK_DGRAM;
 
   if((getaddrinfo(hostname, NULL, &hints, &res))!=0){
   	perror("getaddrinfo error: ");
   	//exit(1);
   }
-  inet_ntop(AF_INET, res->ai_addr->sa_data, addrstr, INET_ADDRSTRLEN);
+  while(res!=NULL){
+   inet_ntop(AF_INET, res->ai_addr->sa_data, my_ip, INET_ADDRSTRLEN);
   //if(addrstr!=NULL){
   	//printf("error while fetching ip address\n");
   	//exit(1);
   //}
-  printf("My ip adress is %s\n",addrstr);
+  addr = (struct sockaddr_in *)res->ai_addr;
+  strcpy(my_ip, inet_ntoa((struct in_addr)addr->sin_addr)); 
+
+  printf("My ip adress is %s\n",my_ip);
+   res=res->ai_next;
+  }
 }
 
 void read_config_file(){
@@ -85,9 +92,9 @@ void read_config_file(){
 		exit(0);
 	}
 	line = (char*)malloc(256);
-  strcpy(neighbours[0].ip_addr, "120.0.0.1");
+  get_ip_address();
   neighbours[0].is_neighbour = -1;
-  strcpy(neighbours[0].ip_addr, get_ip_address());
+  strcpy(neighbours[0].ip_addr, my_ip);
 	while(fgets(line, 256, fp) != NULL)
 	{
 		ip_address = strtok(line, " ");
@@ -176,6 +183,11 @@ void update_routing_table(){
   int i;
   for(i=0;i<node_count;i++){
   	strcpy(routing_table[i].destination,neighbours[i].ip_addr);
+        if(((strcmp(routing_table[i].next_hop, neighbours[pi[i]].ip_addr)!=0)||(routing_table[i].cost != dist[i])) && (pi[i]!=-1))
+          {
+           is_routing_table_changed=1;
+          }
+
   	if(pi[i]==-1){
   		strcpy(routing_table[i].next_hop,"Null          ");
   	}
@@ -183,6 +195,7 @@ void update_routing_table(){
   	{ 
   		strcpy(routing_table[i].next_hop, neighbours[pi[i]].ip_addr);
   	}
+        
   	routing_table[i].cost = dist[i];
   	routing_table[i].ttl = ttl;
   	if((strcmp(routing_table[i].next_hop, neighbours[pi[i]].ip_addr)!=0)||(routing_table[i].cost != dist[i]))
