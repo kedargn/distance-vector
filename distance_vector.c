@@ -146,6 +146,10 @@ void update_routing_table(){
   int i;
   for(i=0;i<node_count;i++){
   	strcpy(routing_table[i].destination,neighbours[i].ip_addr);
+        if(((strcmp(routing_table[i].next_hop, neighbours[pi[i]].ip_addr)!=0)||(routing_table[i].cost != dist[i]))&& (pi[i]!=-1))
+		{
+     is_routing_table_changed=1;
+	  }
   	if(pi[i]==-1){
   		strcpy(routing_table[i].next_hop,"Null          ");
   	}
@@ -174,7 +178,6 @@ void bellman_ford(){
 	  		if(dist[j] > dist[i]+graph[i][j]){
 	  			dist[j] = dist[i]+graph[i][j];
 	  			pi[j] = i;
-	  			is_routing_table_changed = 1;
 	  		}
 	  	}
 	  }
