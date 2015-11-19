@@ -10,7 +10,7 @@ char config_file_name[100];
 int ttl, port_no, period, split_horizon, node_count=0, graph[100][100], *dist, *pi, is_routing_table_changed = 0;     //split horizon can be either 1 or 0
 long infinity;
 
-int n_port_no; //TODO: temp variable. Remove this
+int n_port_no, is_initialised=0; //TODO: temp variable. Remove this
 
 struct sockaddr_in server_addr;
 struct sockaddr_in neighbour_addr;
@@ -159,8 +159,11 @@ void update_routing_table(){
   		strcpy(routing_table[i].next_hop, neighbours[pi[i]].ip_addr);
   	}
   	routing_table[i].cost = dist[i];
-  	routing_table[i].ttl = ttl;
+        if(is_initialised==0){
+  	 routing_table[i].ttl = ttl;
+       }
   }
+  is_initialised = 1;
   print_routing_table();
 }
 
@@ -252,21 +255,26 @@ void set_ttl_to_default(int node){
 		printf("Invalid node number %d\n", node);
 		exit(1);
 	}
+        graph[0][node]=1;
+        printf("Setting deault ttl to node %s\n",neighbours[node].ip_addr);
 	routing_table[node].ttl = ttl;
 }
 
 void reduce_ttl(int node, int seconds){
- routing_table[node].ttl = routing_table[node].ttl - seconds;
- if(routing_table[node].ttl <= 0){
- 	routing_table[node].cost = infinity;
- 	is_routing_table_changed = 1;
+ if(neighbours[node].is_neighbour==1){
+  routing_table[node].ttl = routing_table[node].ttl - period;
+  if(routing_table[node].ttl <= 0){
+        graph[0][node] = infinity;//infinity;
+ // 	routing_table[node].cost = infinity;
+ 	//is_routing_table_changed = 1;
+  }
  } 
 }
 
 void interpret_advertisement(unsigned char *advertise_contents, int seconds){
-	int i=0, source_node, destination_node;
-	unsigned char ip[15];
-	unsigned long get_cost=0, temp=0;
+   int i=0, source_node, destination_node;
+   unsigned char ip[15];
+   unsigned long get_cost=0, temp=0;
 	printf("Received data is\n");
 	while(i<(node_count*8)){
 		sprintf(ip,"%u.%u.%u.%u",advertise_contents[i],advertise_contents[i+1],advertise_contents[i+2],advertise_contents[i+3]);
@@ -287,6 +295,7 @@ void interpret_advertisement(unsigned char *advertise_contents, int seconds){
     		exit(1);
     	}
     	set_ttl_to_default(source_node);
+        graph[source_node][0] = 1;
     	graph[source_node][source_node] = 0;
     	printf("source node is %d\n", source_node);
     }
@@ -297,7 +306,7 @@ void interpret_advertisement(unsigned char *advertise_contents, int seconds){
     		printf("**ERROR*get_vertex_number retuned -1\n");
     		exit(1);
     	}
-    	reduce_ttl(destination_node, seconds);
+    	//reduce_ttl(destination_node, seconds);
     	printf("destination_node is %d\n", destination_node);
     	graph[source_node][destination_node] = get_cost;
     }
@@ -355,35 +364,36 @@ void intialise(){
  then send the updates
  */
 void update(){
-	int result,i;
-	struct timeval interval, timer_start, timer_end;
-	char received_advertisement[node_count*8];
-	interval.tv_sec = 10;
-	interval.tv_usec = 0;	
-	gettimeofday(&timer_start, 0);
-	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char*)&interval, sizeof(struct timeval));
-	gettimeofday(&timer_end, 0);
+  int result=1,i;
+  struct timeval interval, timer_start, timer_end;
+  char received_advertisement[node_count*8];
+  interval.tv_sec = 2;
+  interval.tv_usec = 0;	
+  setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char*)&interval, sizeof(struct timeval));
   for(;;){
-		bzero(received_advertisement, node_count*8);	
-		result = recvfrom(sock, received_advertisement, node_count*8, 0, (struct sockaddr*)&neighbour_addr, &neighbour_addr_length);
-		if(result<0){
-			for(i=1;i<node_count;i++){
-				reduce_ttl(i, period);
-			}
-	    prepare_advertisement(received_advertisement);
-	    send_advertisment(received_advertisement);
-		}else{
-			interpret_advertisement(received_advertisement, (timer_end.tv_sec-timer_start.tv_sec));   //TODO:Send triggered update only if routing table has changed.
-			if(is_routing_table_changed==1){
-				printf("Routing table HAS changed\n");
-				is_routing_table_changed=0;
-				prepare_advertisement(received_advertisement);
-		    send_advertisment(received_advertisement);
-	    }else{
-	    	printf("Routing table NOT hanged\n");
-	    }
-		}
-	}
+    bzero(received_advertisement, node_count*8);
+    gettimeofday(&timer_start, 0);
+    sleep(period);
+    result=1;         
+    for(i=1;i<node_count;i++){
+     reduce_ttl(i, period);
+    }
+    while(result>0){	
+      bzero(received_advertisement, node_count*8);
+      result = recvfrom(sock, received_advertisement, node_count*8, 0, (struct sockaddr*)&neighbour_addr, &neighbour_addr_length);
+      if(result<0){
+        prepare_advertisement(received_advertisement);
+        send_advertisment(received_advertisement);
+        printf("SENDING TABLE\n");
+        print_routing_table();
+      }
+      else
+      {
+	interpret_advertisement(received_advertisement, period);
+        print_routing_table();
+      }
+    }
+  }
 }
 
 int main(int argc, char* argv[]){
