@@ -393,14 +393,8 @@ void update(){
 	    send_advertisment(received_advertisement);
 		}else{
 			interpret_advertisement(received_advertisement);   //TODO:Send triggered update only if routing table has changed.
-			if(is_routing_table_changed==1){
-				printf("Routing table HAS changed\n");
-				is_routing_table_changed=0;
-				prepare_advertisement(received_advertisement);
-		    send_advertisment(received_advertisement);
-	    }else{
-	    	printf("Routing table NOT hanged\n");
-	    }
+			prepare_advertisement(received_advertisement);
+	    send_advertisment(received_advertisement);
 		}
 	}
 }
