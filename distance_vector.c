@@ -9,7 +9,7 @@
 #include <netdb.h>
 
 char config_file_name[100], my_ip[50];
-int ttl, port_no, period, split_horizon, node_count=1, graph[100][100], *dist, *pi, is_routing_table_changed = 0;     //split horizon can be either 1 or 0
+int ttl, port_no, period, split_horizon, node_count=0, graph[100][100], *dist, *pi, is_routing_table_changed = 0;     //split horizon can be either 1 or 0
 long infinity;
 
 int n_port_no; //TODO: temp variable. Remove this
@@ -92,9 +92,9 @@ void read_config_file(){
 		exit(0);
 	}
 	line = (char*)malloc(256);
-  get_ip_address();
-  neighbours[0].is_neighbour = -1;
-  strcpy(neighbours[0].ip_addr, my_ip);
+  // get_ip_address();
+  // neighbours[0].is_neighbour = -1;
+  // strcpy(neighbours[0].ip_addr, my_ip);
 	while(fgets(line, 256, fp) != NULL)
 	{
 		ip_address = strtok(line, " ");
