@@ -5,9 +5,11 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <netdb.h>
 
-char config_file_name[100];
-int ttl, port_no, period, split_horizon, node_count=0, graph[100][100], *dist, *pi, is_routing_table_changed = 0;     //split horizon can be either 1 or 0
+char config_file_name[100], my_ip[50];
+int ttl, port_no, period, split_horizon, node_count=1, graph[100][100], *dist, *pi, is_routing_table_changed = 0;     //split horizon can be either 1 or 0
 long infinity;
 
 int n_port_no, is_initialised=0; //TODO: temp variable. Remove this
@@ -44,6 +46,35 @@ void print_neighbours(){
 	}
 }
 
+void get_ip_address(){
+  struct addrinfo hints, *res;
+  int errcode;
+  char hostname[50];
+  struct sockaddr_in *addr;
+
+  if(gethostname(hostname, 50)!=0){
+   printf("error in getting hostname, errno ");
+  }
+  printf("hostname is %s\n", hostname);
+
+  memset (&hints, 0, sizeof (hints));
+  hints.ai_family = AF_UNSPEC; 
+  hints.ai_socktype = SOCK_DGRAM;
+
+  if((getaddrinfo(hostname, NULL, &hints, &res))!=0){
+    perror("getaddrinfo error: ");
+  }
+  while(res!=NULL){
+   inet_ntop(AF_INET, res->ai_addr->sa_data, my_ip, INET_ADDRSTRLEN);
+  
+  addr = (struct sockaddr_in *)res->ai_addr;
+  strcpy(my_ip, inet_ntoa((struct in_addr)addr->sin_addr)); 
+
+  printf("My ip adress is %s\n",my_ip);
+   res=res->ai_next;
+  }
+}
+
 void read_config_file(){
 	FILE *fp;
 	int i = 0;
@@ -57,8 +88,9 @@ void read_config_file(){
 		exit(0);
 	}
 	line = (char*)malloc(256);
-  // strcpy(neighbours[0].ip_addr, "120.0.0.1");
-  // neighbours[0].is_neighbour = -1;
+  get_ip_address();
+  strcpy(neighbours[0].ip_addr, my_ip);
+  neighbours[0].is_neighbour = -1;
 	while(fgets(line, 256, fp) != NULL)
 	{
 		ip_address = strtok(line, " ");
@@ -66,7 +98,7 @@ void read_config_file(){
 		strcpy(neighbours[node_count].ip_addr, ip_address);
 		if(node_count == 0)
 		{
-			neighbours[node_count].is_neighbour = -1;
+			//neighbours[node_count].is_neighbour = -1;
 		}
 		else
 		{
@@ -264,9 +296,9 @@ void reduce_ttl(int node, int seconds){
  if(neighbours[node].is_neighbour==1){
   routing_table[node].ttl = routing_table[node].ttl - period;
   if(routing_table[node].ttl <= 0){
-        graph[0][node] = infinity;//infinity;
- // 	routing_table[node].cost = infinity;
- 	//is_routing_table_changed = 1;
+    graph[0][node] = infinity;//infinity;
+    bellman_ford();
+    print_graph();  
   }
  } 
 }
