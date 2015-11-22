@@ -7,11 +7,12 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <netdb.h>
+#include <errno.h>
 
 char config_file_name[100], my_ip[50];
 int ttl, source_node=-1, port_no, period, split_horizon=0, node_count=1, graph[100][100], *dist, *pi, is_routing_table_changed = 0, is_initialised=0;     //split horizon can be either 1 or 0
 long infinity;
-
+unsigned char *advertise_contents;
 
 struct sockaddr_in server_addr;
 struct sockaddr_in neighbour_addr;
@@ -21,6 +22,7 @@ int neighbour_addr_length;
 void create_socket();
 void bind_socket();
 void check_result(char*, int);
+void send_advertisment(int);
 
 struct neighbouring_routers{
  char ip_addr[15];
@@ -238,12 +240,16 @@ void intialise_graph(){
 	print_graph();
 }
 
-void prepare_advertisement( unsigned char* advertise_contents){
-	int i, j = 0, k=0, x=0, y=0;
+void prepare_advertisement(){
+	int i,node_no=1, j = 0, k=0, x=0, y=0;
 	unsigned char transform;
 	long path_cost;
 	unsigned int p;
 	unsigned char temp_ip_addr[15], part[3];
+ for(node_no=1;node_no<node_count;node_no++){
+ x = y = k = 0;
+ if(neighbours[node_no].is_neighbour==1){
+  advertise_contents = (char*)calloc(node_count*8, sizeof(char));
 	for(i=0;i<node_count;i++){
 		memcpy(temp_ip_addr,routing_table[i].destination, strlen(routing_table[i].destination));
     // /printf("%s\n", temp_ip_addr);
@@ -262,7 +268,10 @@ void prepare_advertisement( unsigned char* advertise_contents){
       	k=0;
       }
     }
-    path_cost = routing_table[i].cost;
+    if(routing_table[i].from == node_no)
+     path_cost = infinity;
+    else
+     path_cost = routing_table[i].cost;
     // transform = path_cost & 4278190080;
     advertise_contents[x++] = (path_cost & 4278190080)>>24;
     //printf("%u\n", advertise_contents[x-1]);
@@ -275,7 +284,10 @@ void prepare_advertisement( unsigned char* advertise_contents){
     bzero(temp_ip_addr, 15);
     j=0;
     k=0;
-	}
+	 }
+   send_advertisment(node_no);
+  }
+ }
 }
 
 int get_vertex_number(char *ip){
@@ -354,17 +366,19 @@ void interpret_advertisement(unsigned char *advertise_contents, int seconds){
 	bellman_ford();
 }
 
-void send_advertisment(char *advertise_contents){
-  int i, result;
-  for(i=0;i<node_count;i++){
+void send_advertisment(int i){
+  int  result;
+  //for(i=0;i<node_count;i++){
   	if(neighbours[i].is_neighbour == 1){
   		neighbour_addr.sin_family = PF_INET;
   		neighbour_addr.sin_addr.s_addr = inet_addr(neighbours[i].ip_addr);
   		neighbour_addr.sin_port = htons(port_no);
   		result = sendto(sock, advertise_contents, 8*node_count, 0, (struct sockaddr*)&neighbour_addr, sizeof(neighbour_addr));
-  		printf("sendto to ip address %s & port is %d is %d\n", neighbours[i].ip_addr, port_no, result);
+  		printf("sendto to ip address %s & port is %d is %d and error is %d\n", neighbours[i].ip_addr, port_no, result, errno);
+      perror("sendto error: ");
+      free(advertise_contents);
   	}
-  }	
+  //}
 }
 
 void receive_advertisement(){
@@ -386,14 +400,12 @@ void socket_creation(){
 }
 
 void intialise(){
-	unsigned char *advertise_contents;
   allocate();
   intialise_graph();
   bellman_ford();
-  advertise_contents = (char*)calloc(node_count*8,sizeof(char));
-  prepare_advertisement(advertise_contents);
   socket_creation();
-  send_advertisment(advertise_contents);
+  prepare_advertisement();
+  //send_advertisment();
   receive_advertisement();
   //interpret_advertisement(advertise_contents);
 } 
@@ -421,8 +433,8 @@ void update(){
       bzero(received_advertisement, node_count*8);
       result = recvfrom(sock, received_advertisement, node_count*8, 0, (struct sockaddr*)&neighbour_addr, &neighbour_addr_length);
       if(result<0){
-        prepare_advertisement(received_advertisement);
-        send_advertisment(received_advertisement);
+        prepare_advertisement();
+        //send_advertisment();
         printf("SENDING TABLE\n");
         print_routing_table();
       }
