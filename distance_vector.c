@@ -6,10 +6,8 @@
 #include<arpa/inet.h>
 
 char config_file_name[100];
-int ttl, port_no, period, split_horizon, node_count=0, graph[100][100], *dist, *pi, is_routing_table_changed = 0;     //split horizon can be either 1 or 0
+int ttl, source_node=-1, port_no, period, split_horizon=0, node_count=0, graph[100][100], *dist, *pi, is_routing_table_changed = 0, is_intialised=0;     //split horizon can be either 1 or 0
 long infinity;
-
-int n_port_no; //TODO: temp variable. Remove this
 
 struct sockaddr_in server_addr;
 struct sockaddr_in neighbour_addr;
@@ -26,10 +24,8 @@ struct neighbouring_routers{
 };
 
 typedef struct{
-	//struct neighbouring_routers destination;
-	//struct neighbouring_routers next_hop;
 	char destination[15], next_hop[15];
-	int cost, ttl;
+	int cost, ttl, from;
 }route_entry;
 
 route_entry routing_table[100]; //TODO: try not to hard code
@@ -136,16 +132,20 @@ void allocate(){
 void print_routing_table(){
 	int i;
   printf("\n\nRouting table\n\n");
-	printf("Node\t\tNext Hop\tcost\tTTL\n");
+	printf("Node\t\tNext Hop\tcost\tTTL\nSource Node\n");
 	for(i=0;i<node_count;i++){
-		printf("%s\t%s\t%d\t%d\n", routing_table[i].destination, routing_table[i].next_hop, routing_table[i].cost, routing_table[i].ttl);
+		printf("%s\t%s\t%d\t%d\t%d\n", routing_table[i].destination, routing_table[i].next_hop, routing_table[i].cost, routing_table[i].ttl, routing_table[i].from);
 	}
 }
 
 void update_routing_table(){
   int i;
+
   for(i=0;i<node_count;i++){
   	strcpy(routing_table[i].destination,neighbours[i].ip_addr);
+  	if((routing_table[i].cost != dist[i]) || ((strcmp(routing_table[i].next_hop, neighbours[pi[i]].ip_addr))==0)){
+  		routing_table[i].from = source_node;
+  	}
   	if(pi[i]==-1){
   		strcpy(routing_table[i].next_hop,"Null          ");
   	}
@@ -155,7 +155,11 @@ void update_routing_table(){
   	}
   	routing_table[i].cost = dist[i];
   	routing_table[i].ttl = ttl;
+  	if(is_intialised==0){
+  		routing_table[0].from = -1;
+  	}
   }
+  is_intialised = 1;
   print_routing_table();
 }
 
@@ -244,7 +248,7 @@ int get_vertex_number(char *ip){
 }
 
 void interpret_advertisement(unsigned char *advertise_contents){
-	int i=0, source_node, destination_node;
+	int i=0, destination_node;
 	unsigned char ip[15];
 	unsigned long get_cost=0, temp=0;
 	printf("Received data is\n");
@@ -360,7 +364,7 @@ void update(){
 }
 
 int main(int argc, char* argv[]){
-	if(argc!=8){
+	if(argc!=7){
 		printf("Invalid number of arguments\n. Please pass 'Config_file_name port_no TTL infinity period split_horizon'\n");
 		exit(1);
 	}
@@ -370,8 +374,7 @@ int main(int argc, char* argv[]){
   infinity = atoi(argv[4]);
   period = atoi(argv[5]);
   split_horizon = atoi(argv[6]);
-  n_port_no = atoi(argv[7]);
-  printf(" Config file name %s\n port no %d\nTTL %d\ninfinity %ld\nperiod %d\nsplit_horizon %d n_port_no %d\n", config_file_name, port_no, ttl, infinity, period, split_horizon, n_port_no);
+  printf(" Config file name %s\n port no %d\nTTL %d\ninfinity %ld\nperiod %d\nsplit_horizon %d\n", config_file_name, port_no, ttl, infinity, period, split_horizon);
   read_config_file();
   intialise();
   update();
