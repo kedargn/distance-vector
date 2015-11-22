@@ -8,11 +8,10 @@
 #include <sys/types.h>
 #include <netdb.h>
 
-char config_file_name[100];
-int ttl, source_node=-1, port_no, period, split_horizon=0, node_count=0, graph[100][100], *dist, *pi, is_routing_table_changed = 0, is_intialised=0;     //split horizon can be either 1 or 0
+char config_file_name[100], my_ip[50];
+int ttl, source_node=-1, port_no, period, split_horizon=0, node_count=1, graph[100][100], *dist, *pi, is_routing_table_changed = 0, is_initialised=0;     //split horizon can be either 1 or 0
 long infinity;
 
-int n_port_no, is_initialised=0; //TODO: temp variable. Remove this
 
 struct sockaddr_in server_addr;
 struct sockaddr_in neighbour_addr;
@@ -179,7 +178,7 @@ void update_routing_table(){
   for(i=0;i<node_count;i++){
   	strcpy(routing_table[i].destination,neighbours[i].ip_addr);
 
-  	if((routing_table[i].cost != dist[i]) || ((strcmp(routing_table[i].next_hop, neighbours[pi[i]].ip_addr))==0)){
+  	if((routing_table[i].cost != dist[i]) || ((strcmp(routing_table[i].next_hop, neighbours[pi[i]].ip_addr))!=0)){
   		routing_table[i].from = source_node;
   	}
 
@@ -196,8 +195,8 @@ void update_routing_table(){
   		strcpy(routing_table[i].next_hop, neighbours[pi[i]].ip_addr);
   	}
   	routing_table[i].cost = dist[i];
-  	routing_table[i].ttl = ttl;
-  	if(is_intialised==0){
+
+  	if(is_initialised==0){
   		routing_table[i].from = -1;
   		routing_table[i].ttl = ttl;
   	}
