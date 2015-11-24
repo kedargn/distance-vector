@@ -268,7 +268,7 @@ void prepare_advertisement(){
       	k=0;
       }
     }
-    if(routing_table[i].from == node_no)
+    if((routing_table[i].from == node_no) && (split_horizon==1))
      path_cost = infinity;
     else
      path_cost = routing_table[i].cost;
