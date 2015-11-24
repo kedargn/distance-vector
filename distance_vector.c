@@ -34,7 +34,7 @@ typedef struct{
 	int cost, ttl, from;
 }route_entry;
 
-route_entry routing_table[100]; //TODO: try not to hard code
+route_entry routing_table[100]; //TODO: try not to hard code. Working on it.. - Anup
 
 struct neighbouring_routers neighbours[100];   //TODO: Try not to hard code
 
