@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <netdb.h>
 #include <errno.h>
+#include <pthread.h>
 
 char config_file_name[100], my_ip[50];
 int ttl, source_node=-1, port_no, period, split_horizon=0, node_count=1, graph[100][100], *dist, *pi, is_routing_table_changed = 0, is_initialised=0;     //split horizon can be either 1 or 0
@@ -34,9 +35,10 @@ typedef struct{
 	int cost, ttl, from;
 }route_entry;
 
-route_entry routing_table[100]; //TODO: try not to hard code. Working on it.. - Anup
+route_entry routing_table[100]; //TODO: try not to hard code. **ANUP** - Dynamic Array implementation is more complicated than I thought. We need a Linked list to make it dynamic.
+//Putting the priority down for this one.
 
-struct neighbouring_routers neighbours[100];   //TODO: Try not to hard code
+struct neighbouring_routers neighbours[100];   //TODO: Try not to hard code . Please see the above comments.
 
 void print_neighbours(){
 	int i;
@@ -101,7 +103,7 @@ void read_config_file(){
 		}
 		else
 		{
-			neighbours[node_count].is_neighbour = (strncmp(neighbour, "yes", 3) == 0 ? 1: 0);
+			neighbours[node_count].is_neighbour = (((strncmp(neighbour, "yes", 3) == 0) || (strncmp(neighbour, "YES", 3) == 0)) ? 1: 0);
 		}
 		printf("ip_address %s\nneighbour %s\n", ip_address, neighbour);
 		node_count++;		
@@ -184,10 +186,10 @@ void update_routing_table(){
   		routing_table[i].from = source_node;
   	}
 
-  //   if(((strcmp(routing_table[i].next_hop, neighbours[pi[i]].ip_addr)!=0)||(routing_table[i].cost != dist[i]))&& (pi[i]!=-1))
-		// {
-  //    is_routing_table_changed=1;
-	 //  }
+    if(((strcmp(routing_table[i].next_hop, neighbours[pi[i]].ip_addr)!=0)||(routing_table[i].cost != dist[i]))&& (pi[i]!=-1))
+	{
+      is_routing_table_changed=1;
+	}
 
   	if(pi[i]==-1){
   		strcpy(routing_table[i].next_hop,"Null          ");
@@ -204,7 +206,7 @@ void update_routing_table(){
   	}
   }
   is_initialised = 1;
-  print_routing_table();
+  //print_routing_table(); Tempororily comment this.
 }
 
 void bellman_ford(){
@@ -311,9 +313,10 @@ void set_ttl_to_default(int node){
 }
 
 void reduce_ttl(int node, int seconds){
- if(neighbours[node].is_neighbour==1){
+ if(neighbours[node].is_neighbour==1 && routing_table[node].ttl > 0){
   routing_table[node].ttl = routing_table[node].ttl - period;
   if(routing_table[node].ttl <= 0){
+	routing_table[node].ttl = 0; //Safe check to make it zero once the node is no more responding.
     graph[0][node] = infinity;//infinity;
     bellman_ford();
     print_graph();  
@@ -404,9 +407,9 @@ void intialise(){
   intialise_graph();
   bellman_ford();
   socket_creation();
-  prepare_advertisement();
+  prepare_advertisement(); //Will prepare and send the advertisement...
   //send_advertisment();
-  receive_advertisement();
+  //receive_advertisement();
   //interpret_advertisement(advertise_contents);
 } 
 
@@ -414,7 +417,7 @@ void intialise(){
  if data received then update graph and bellman
  then send the updates
  */
-void update(){
+/*void update(){
   int result=1,i;
   struct timeval interval, timer_start, timer_end;
   char received_advertisement[node_count*8];
@@ -440,14 +443,41 @@ void update(){
       }
       else
       {
-	interpret_advertisement(received_advertisement, period);
+		interpret_advertisement(received_advertisement, period);
         print_routing_table();
       }
     }
   }
+}*/
+
+void *periodic_update_function()
+{
+	int i;
+	while(1)
+	{
+		sleep(period);
+		for(i=1;i<node_count;i++)
+		{
+			reduce_ttl(i, period);
+		}
+		prepare_advertisement();
+        //send_advertisment();
+        printf("SENDING TABLE\n");
+        print_routing_table();
+		
+	}
+}
+
+void triggered_update_function()
+{
+	char received_advertisement[node_count*8];
+	bzero(received_advertisement, node_count*8);
 }
 
 int main(int argc, char* argv[]){
+	pthread_t periodic_thread, triggered_thread;
+	int result,th_ret1;
+	char *received_advertisement = (char*) malloc(100*sizeof(char));
 	if(argc!=7){
 		printf("Invalid number of arguments\n. Please pass 'Config_file_name port_no TTL infinity period split_horizon'\n");
 		exit(1);
@@ -461,7 +491,30 @@ int main(int argc, char* argv[]){
   printf(" Config file name %s\n port no %d\nTTL %d\ninfinity %ld\nperiod %d\nsplit_horizon %d\n", config_file_name, port_no, ttl, infinity, period, split_horizon);
   read_config_file();
   intialise();
-  update();
+  received_advertisement = realloc(received_advertisement, (node_count * 8));
+  th_ret1 = pthread_create( &periodic_thread, NULL, periodic_update_function, NULL);
+  while(1)
+  {
+	  result = recvfrom(sock, received_advertisement, node_count*8, 0, (struct sockaddr*)&neighbour_addr, &neighbour_addr_length);
+	  
+	  if(result<0)
+	  {
+		  printf("Nothing Received\n");
+		  continue;
+	  }
+	  interpret_advertisement(received_advertisement, period);
+      
+	  if(is_routing_table_changed == 1)
+	  {
+		  printf("Routing table has changed\n");
+		  prepare_advertisement();
+		  is_routing_table_changed=0;
+		  print_routing_table();
+	  }
+	  
+  }
+  //update();
+  return 0;
 }
 
 void create_socket()
