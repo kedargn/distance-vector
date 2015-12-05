@@ -14,6 +14,7 @@ char config_file_name[100], my_ip[50];
 int ttl, source_node=-1, port_no, period, split_horizon=0, node_count=1, graph[100][100], *dist, *pi, is_routing_table_changed = 0, is_initialised=0;     //split horizon can be either 1 or 0
 long infinity;
 unsigned char *advertise_contents;
+pthread_mutex_t bellman_mutex, update_mutex, adv_mutex;
 
 struct sockaddr_in server_addr;
 struct sockaddr_in neighbour_addr;
@@ -177,8 +178,8 @@ void print_routing_table(){
 }
 
 void update_routing_table(){
+  pthread_mutex_lock(&update_mutex);
   int i;
-
   for(i=0;i<node_count;i++){
   	strcpy(routing_table[i].destination,neighbours[i].ip_addr);
 
@@ -207,9 +208,11 @@ void update_routing_table(){
   }
   is_initialised = 1;
   //print_routing_table(); Tempororily comment this.
+  pthread_mutex_unlock(&update_mutex);
 }
 
 void bellman_ford(){
+ pthread_mutex_lock(&bellman_mutex);
  int i,j,k;
  /* For loop to intialise the graph*/
  for(i=0;i<node_count;i++){
@@ -231,6 +234,7 @@ void bellman_ford(){
  printf("\nbellman_ford algo has finished\n");
  print_graph();
  update_routing_table();
+ pthread_mutex_unlock(&bellman_mutex);
 }
 
 void intialise_graph(){
@@ -243,6 +247,7 @@ void intialise_graph(){
 }
 
 void prepare_advertisement(){
+  pthread_mutex_lock(&adv_mutex);
 	int i,node_no=1, j = 0, k=0, x=0, y=0;
 	unsigned char transform;
 	long path_cost;
@@ -290,6 +295,7 @@ void prepare_advertisement(){
    send_advertisment(node_no);
   }
  }
+ pthread_mutex_unlock(&adv_mutex);
 }
 
 int get_vertex_number(char *ip){
@@ -362,7 +368,7 @@ void interpret_advertisement(unsigned char *advertise_contents, int seconds){
     	}
     	//reduce_ttl(destination_node, seconds);
     	printf("destination_node is %d\n", destination_node);
-    	graph[source_node][destination_node] = get_cost;
+    	graph[source_node][destination_node] = ((get_cost > infinity) ? infinity : get_cost);
     }
 		i+=8;
 	}
@@ -474,6 +480,27 @@ void triggered_update_function()
 	bzero(received_advertisement, node_count*8);
 }
 
+void init_mutexes(){
+ if(pthread_mutex_init(&update_mutex, NULL)!=0){
+  printf("mutex init failed for update\n");
+  exit(1);
+ }
+ if(pthread_mutex_init(&bellman_mutex, NULL)!=0){
+  printf("mutex init failed for bellman\n");
+  exit(1);
+ }
+ if(pthread_mutex_init(&adv_mutex, NULL)!=0){
+  printf("mutex init failed for advertisement\n");
+  exit(1);
+ }
+}
+
+void destroy_mutexes(){
+ pthread_mutex_destroy(&bellman_mutex);
+ pthread_mutex_destroy(&update_mutex);
+ pthread_mutex_destroy(&adv_mutex);
+}
+
 int main(int argc, char* argv[]){
 	pthread_t periodic_thread, triggered_thread;
 	int result,th_ret1;
@@ -506,12 +533,16 @@ int main(int argc, char* argv[]){
       
 	  if(is_routing_table_changed == 1)
 	  {
-		  printf("Routing table has changed\n");
+		  printf("***********Routing table has changed************\n");
 		  prepare_advertisement();
 		  is_routing_table_changed=0;
 		  print_routing_table();
 	  }
-	  
+    else
+    {
+     printf("***ROUTING TABLE NOT CHANGED\n");
+     print_routing_table();
+    }
   }
   //update();
   return 0;
