@@ -26,21 +26,23 @@ void bind_socket();
 void check_result(char*, int);
 void send_advertisment(int);
 
+// structure for all routers in network
 struct neighbouring_routers{
  char ip_addr[15];
  int is_neighbour;
 };
 
+//routing table structure
 typedef struct{
 	char destination[15], next_hop[15];
 	int cost, ttl, from;
 }route_entry;
 
-route_entry routing_table[100]; //TODO: try not to hard code. **ANUP** - Dynamic Array implementation is more complicated than I thought. We need a Linked list to make it dynamic.
-//Putting the priority down for this one.
+route_entry routing_table[200]; 
 
-struct neighbouring_routers neighbours[100];   //TODO: Try not to hard code . Please see the above comments.
+struct neighbouring_routers neighbours[200];
 
+//prints the neighbours
 void print_neighbours(){
 	int i;
 	for(i=0;i<node_count;i++){
@@ -48,6 +50,9 @@ void print_neighbours(){
 	}
 }
 
+/** 
+* gets ip address of the local machine
+**/
 void get_ip_address(){
   struct addrinfo hints, *res;
   int errcode;
@@ -77,6 +82,9 @@ void get_ip_address(){
   }
 }
 
+/** reads config file and detetermines the ip address of all routers 
+* and identifies the neighbouring routers
+**/
 void read_config_file(){
 	FILE *fp;
 	int i = 0;
@@ -113,6 +121,9 @@ void read_config_file(){
 	printf("Total nodes in this network is %d\n",node_count);
 }
 
+/**
+* prints the header
+**/
 void print_header(){
 	int i;
 	for(i=0;i<node_count;i++){
@@ -121,6 +132,9 @@ void print_header(){
 	printf("\n");
 }
 
+/** 
+* prints distance and pi(predecessor) array
+**/
 void print_array(){
  int i;
  printf("Distance Array\n");
@@ -136,6 +150,9 @@ void print_array(){
  printf("\n");
 }
 
+/** 
+* prints the graph
+**/
 void print_graph(){
 	int i,j;
 	printf("\ngraph\n");
@@ -149,12 +166,12 @@ void print_graph(){
   print_array();
 }
 
+
+/** 
+* allocates and intialises graph with infinity
+**/
 void allocate(){
 	int i, j;
-	// graph = calloc(node_count, sizeof(int));
- //  for(i=0;i<node_count;i++){
- //  	graph[i] = calloc(node_count, sizeof(int));
- //  }
 
   for(i=0;i<node_count;i++){
   	for(j=0;j<node_count;j++){
@@ -168,15 +185,21 @@ void allocate(){
   print_graph();
 }
 
+/**
+* prints the routing table
+**/
 void print_routing_table(){
 	int i;
   printf("\n\nRouting table\n\n");
-	printf("Node\t\tNext Hop\tcost\tTTL\nSource Node\n");
+	printf("Node\t\tNext Hop\tcost\tTTL\tSN\n");
 	for(i=0;i<node_count;i++){
 		printf("%s\t%s\t%d\t%d\t%d\n", routing_table[i].destination, routing_table[i].next_hop, routing_table[i].cost, routing_table[i].ttl, routing_table[i].from);
 	}
 }
 
+/** updates routing table after bellman ford is run
+* this function is thread safe
+**/
 void update_routing_table(){
   pthread_mutex_lock(&update_mutex);
   int i;
@@ -211,6 +234,9 @@ void update_routing_table(){
   pthread_mutex_unlock(&update_mutex);
 }
 
+/** This function implements bellman ford and populates
+* distance pi array
+**/
 void bellman_ford(){
  pthread_mutex_lock(&bellman_mutex);
  int i,j,k;
@@ -237,6 +263,9 @@ void bellman_ford(){
  pthread_mutex_unlock(&bellman_mutex);
 }
 
+/** 
+* intialises the graph when router startsup
+**/
 void intialise_graph(){
 	int i,j;
 	for(j=1;j<node_count;j++){
@@ -246,6 +275,10 @@ void intialise_graph(){
 	print_graph();
 }
 
+/**
+* prepares the advertisement 
+* if split horizon is on,then required action in update message will be taken
+**/
 void prepare_advertisement(){
   pthread_mutex_lock(&adv_mutex);
 	int i,node_no=1, j = 0, k=0, x=0, y=0;
@@ -298,6 +331,9 @@ void prepare_advertisement(){
  pthread_mutex_unlock(&adv_mutex);
 }
 
+/** 
+* Helper function to get vertex number in 2D matrix
+**/
 int get_vertex_number(char *ip){
 	int  i;
 	for(i=0;i<node_count;i++){
@@ -308,6 +344,9 @@ int get_vertex_number(char *ip){
 	return -1;
 }
 
+/** 
+* After router receives the update from the router, its ttl will be set to default value
+**/
 void set_ttl_to_default(int node){
 	if(node>=node_count){
 		printf("Invalid node number %d\n", node);
@@ -318,18 +357,24 @@ void set_ttl_to_default(int node){
 	routing_table[node].ttl = ttl;
 }
 
+/**
+* Reduces ttl by period seconds
+**/
 void reduce_ttl(int node, int seconds){
  if(neighbours[node].is_neighbour==1 && routing_table[node].ttl > 0){
   routing_table[node].ttl = routing_table[node].ttl - period;
   if(routing_table[node].ttl <= 0){
-	routing_table[node].ttl = 0; //Safe check to make it zero once the node is no more responding.
-    graph[0][node] = infinity;//infinity;
+	routing_table[node].ttl = 0; 
+    graph[0][node] = infinity;
     bellman_ford();
     print_graph();  
   }
  } 
 }
 
+/**
+* the received update message is interpretted here
+**/
 void interpret_advertisement(unsigned char *advertise_contents, int seconds){
   int i=0, destination_node;
   unsigned char ip[15];
@@ -351,7 +396,7 @@ void interpret_advertisement(unsigned char *advertise_contents, int seconds){
     if(i==0){
     	source_node = get_vertex_number(ip);
     	if(source_node == -1){
-    		printf("**ERROR*get_vertex_number retuned -1\n");
+    		printf("get_vertex_number returned -1\n");
     		exit(1);
     	}
     	set_ttl_to_default(source_node);
@@ -375,6 +420,10 @@ void interpret_advertisement(unsigned char *advertise_contents, int seconds){
 	bellman_ford();
 }
 
+
+/**
+* sends advertisement to neighbours
+**/
 void send_advertisment(int i){
   int  result;
   //for(i=0;i<node_count;i++){
@@ -383,13 +432,15 @@ void send_advertisment(int i){
   		neighbour_addr.sin_addr.s_addr = inet_addr(neighbours[i].ip_addr);
   		neighbour_addr.sin_port = htons(port_no);
   		result = sendto(sock, advertise_contents, 8*node_count, 0, (struct sockaddr*)&neighbour_addr, sizeof(neighbour_addr));
-  		printf("sendto to ip address %s & port is %d is %d and error is %d\n", neighbours[i].ip_addr, port_no, result, errno);
-      perror("sendto error: ");
+  		printf("sendto to ip address %s & port is %d is %d\n", neighbours[i].ip_addr, port_no, result);
       free(advertise_contents);
   	}
   //}
 }
 
+/**
+* receives advertisement from neighbours
+**/
 void receive_advertisement(){
 	int i, result;
 	char received_advertisement[node_count*8];	
@@ -399,6 +450,9 @@ void receive_advertisement(){
 	interpret_advertisement(received_advertisement, 0);  //TODO: Look into this again
 }
 
+/**
+* creates & binds socket
+**/
 void socket_creation(){
  server_addr.sin_family = AF_INET;
  server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -408,54 +462,20 @@ void socket_creation(){
  bind_socket();
 }
 
+/** 
+* intialisation step
+**/
 void intialise(){
   allocate();
   intialise_graph();
   bellman_ford();
   socket_creation();
-  prepare_advertisement(); //Will prepare and send the advertisement...
-  //send_advertisment();
-  //receive_advertisement();
-  //interpret_advertisement(advertise_contents);
+  prepare_advertisement(); 
 } 
 
-/*Do receive for 30 seconds
- if data received then update graph and bellman
- then send the updates
- */
-/*void update(){
-  int result=1,i;
-  struct timeval interval, timer_start, timer_end;
-  char received_advertisement[node_count*8];
-  interval.tv_sec = 2;
-  interval.tv_usec = 0;	
-  setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char*)&interval, sizeof(struct timeval));
-  for(;;){
-    bzero(received_advertisement, node_count*8);
-    gettimeofday(&timer_start, 0);
-    sleep(period);
-    result=1;         
-    for(i=1;i<node_count;i++){
-     reduce_ttl(i, period);
-    }
-    while(result>0){	
-      bzero(received_advertisement, node_count*8);
-      result = recvfrom(sock, received_advertisement, node_count*8, 0, (struct sockaddr*)&neighbour_addr, &neighbour_addr_length);
-      if(result<0){
-        prepare_advertisement();
-        //send_advertisment();
-        printf("SENDING TABLE\n");
-        print_routing_table();
-      }
-      else
-      {
-		interpret_advertisement(received_advertisement, period);
-        print_routing_table();
-      }
-    }
-  }
-}*/
-
+/** 
+*function which waits for period seconds and sends the periodic update
+**/
 void *periodic_update_function()
 {
 	int i;
@@ -474,12 +494,9 @@ void *periodic_update_function()
 	}
 }
 
-void triggered_update_function()
-{
-	char received_advertisement[node_count*8];
-	bzero(received_advertisement, node_count*8);
-}
-
+/**
+* function to intialise the mutexes
+**/
 void init_mutexes(){
  if(pthread_mutex_init(&update_mutex, NULL)!=0){
   printf("mutex init failed for update\n");
@@ -495,6 +512,9 @@ void init_mutexes(){
  }
 }
 
+/**
+* function to destroy mutexes
+**/
 void destroy_mutexes(){
  pthread_mutex_destroy(&bellman_mutex);
  pthread_mutex_destroy(&update_mutex);
