@@ -101,9 +101,12 @@ void read_config_file(){
   get_ip_address();
   strcpy(neighbours[0].ip_addr, my_ip);
   neighbours[0].is_neighbour = -1;
-	while(fgets(line, 256, fp) != NULL)
+	while((fgets(line, 256, fp) != NULL)&&(line[0]!='\n'))
 	{
 		ip_address = strtok(line, " ");
+    if(ip_address == NULL){
+     break;
+    }
 		neighbour = strtok(NULL, "\0");
 		strcpy(neighbours[node_count].ip_addr, ip_address);
 		if(node_count == 0)
@@ -206,7 +209,7 @@ void update_routing_table(){
   for(i=0;i<node_count;i++){
   	strcpy(routing_table[i].destination,neighbours[i].ip_addr);
 
-  	if((routing_table[i].cost != dist[i]) || ((strcmp(routing_table[i].next_hop, neighbours[pi[i]].ip_addr))!=0)){
+  	if(((routing_table[i].cost != dist[i]) || ((strcmp(routing_table[i].next_hop, neighbours[pi[i]].ip_addr))!=0))&&(i!=0)){
   		routing_table[i].from = source_node;
   	}
 
