@@ -46,7 +46,7 @@ struct neighbouring_routers neighbours[200];
 void print_neighbours(){
 	int i;
 	for(i=0;i<node_count;i++){
-		printf("neighbour %d\t ip address %s\t is_neighbour %d\n",i, neighbours[i].ip_addr, neighbours[i].is_neighbour);
+		//("neighbour %d\t ip address %s\t is_neighbour %d\n",i, neighbours[i].ip_addr, neighbours[i].is_neighbour);
 	}
 }
 
@@ -60,9 +60,9 @@ void get_ip_address(){
   struct sockaddr_in *addr;
 
   if(gethostname(hostname, 50)!=0){
-   printf("error in getting hostname, errno ");
+   //("error in getting hostname, errno ");
   }
-  printf("hostname is %s\n", hostname);
+  //("hostname is %s\n", hostname);
 
   memset (&hints, 0, sizeof (hints));
   hints.ai_family = AF_UNSPEC; 
@@ -77,7 +77,7 @@ void get_ip_address(){
   addr = (struct sockaddr_in *)res->ai_addr;
   strcpy(my_ip, inet_ntoa((struct in_addr)addr->sin_addr)); 
 
-  printf("My ip adress is %s\n",my_ip);
+  //("My ip adress is %s\n",my_ip);
    res=res->ai_next;
   }
 }
@@ -94,7 +94,7 @@ void read_config_file(){
 	fp = fopen(config_file_name,"r");
 	if(fp == NULL)
 	{
-		printf("Could not open the Configuration file.\n");
+		//("Could not open the Configuration file.\n");
 		exit(0);
 	}
 	line = (char*)malloc(256);
@@ -117,11 +117,11 @@ void read_config_file(){
 		{
 			neighbours[node_count].is_neighbour = (((strncmp(neighbour, "yes", 3) == 0) || (strncmp(neighbour, "YES", 3) == 0)) ? 1: 0);
 		}
-		printf("ip_address %s\nneighbour %s\n", ip_address, neighbour);
+		//("ip_address %s\nneighbour %s\n", ip_address, neighbour);
 		node_count++;		
 	}
 	print_neighbours();
-	printf("Total nodes in this network is %d\n",node_count);
+	//("Total nodes in this network is %d\n",node_count);
 }
 
 /**
@@ -130,9 +130,9 @@ void read_config_file(){
 void print_header(){
 	int i;
 	for(i=0;i<node_count;i++){
-		printf("%d\t",i);
+		//("%d\t",i);
 	}
-	printf("\n");
+	//("\n");
 }
 
 /** 
@@ -140,17 +140,17 @@ void print_header(){
 **/
 void print_array(){
  int i;
- printf("Distance Array\n");
+ //("Distance Array\n");
  print_header();
  for(i=0;i<node_count;i++){
- 	printf("%d\t",dist[i]);
+ 	//("%d\t",dist[i]);
  }
- printf("\n\nPi Array\n");
+ //("\n\nPi Array\n");
  print_header();
  for(i=0;i<node_count;i++){
- 	printf("%d\t",pi[i]);
+ 	//("%d\t",pi[i]);
  }
- printf("\n");
+ //("\n");
 }
 
 /** 
@@ -158,14 +158,14 @@ void print_array(){
 **/
 void print_graph(){
 	int i,j;
-	printf("\ngraph\n");
+	//("\ngraph\n");
 	for(i=0;i<node_count;i++){
   	for(j=0;j<node_count;j++){
-  	 printf("%d\t",graph[i][j]);
+  	 //("%d\t",graph[i][j]);
     }
-    printf("\n");
+    //("\n");
   }
-  printf("\n\n");
+  //("\n\n");
   print_array();
 }
 
@@ -193,10 +193,10 @@ void allocate(){
 **/
 void print_routing_table(){
 	int i;
-  printf("\nRouting table\n\n");
-	printf("Node\t\tNext Hop\tcost\tTTL\tSN\n");
+  //("\nRouting table\n\n");
+	//("Node\t\tNext Hop\tcost\tTTL\tSN\n");
 	for(i=0;i<node_count;i++){
-		printf("%s\t%s\t%d\t%d\t%d\n", routing_table[i].destination, routing_table[i].next_hop, routing_table[i].cost, routing_table[i].ttl, routing_table[i].from);
+		//("%s\t%s\t%d\t%d\t%d\n", routing_table[i].destination, routing_table[i].next_hop, routing_table[i].cost, routing_table[i].ttl, routing_table[i].from);
 	}
 }
 
@@ -260,7 +260,7 @@ void bellman_ford(){
 	  	}
 	  }
  }
- printf("\nbellman_ford algo has finished\n");
+ //("\nbellman_ford algo has finished\n");
  print_graph();
  update_routing_table();
  pthread_mutex_unlock(&bellman_mutex);
@@ -295,7 +295,10 @@ void prepare_advertisement(){
   advertise_contents = (char*)calloc(node_count*8, sizeof(char));
 	for(i=0;i<node_count;i++){
 		memcpy(temp_ip_addr,routing_table[i].destination, strlen(routing_table[i].destination));
-    // /printf("%s\n", temp_ip_addr);
+    // ///("%s\n", temp_ip_addr);
+    if(i==1){
+    	printf("src ip addr %s\n",advertise_contents);
+    }
     while((temp_ip_addr[j])!='\0'){
     	if((temp_ip_addr[j]) != '.'){
        part[k++] = temp_ip_addr[j];
@@ -305,7 +308,7 @@ void prepare_advertisement(){
       {
       	p = atoi(part);
       	advertise_contents[x++] = p;
-      	//printf("part is %u\n", p);
+      	////("part is %u\n", p);
       	j++;
       	bzero(part,3);
       	k=0;
@@ -317,13 +320,13 @@ void prepare_advertisement(){
      path_cost = routing_table[i].cost;
     // transform = path_cost & 4278190080;
     advertise_contents[x++] = (path_cost & 4278190080)>>24;
-    //printf("%u\n", advertise_contents[x-1]);
+    ////("%u\n", advertise_contents[x-1]);
     advertise_contents[x++] = (path_cost & 16711680)>>16;
-    //printf("%u\n", advertise_contents[x-1]);
+    ////("%u\n", advertise_contents[x-1]);
     advertise_contents[x++] = (path_cost & 65280)>>8;
-    //printf("%u\n", advertise_contents[x-1]);
+    ////("%u\n", advertise_contents[x-1]);
     advertise_contents[x++] = path_cost & 255;
-    //printf("%u\n", advertise_contents[x-1]);
+    ////("%u\n", advertise_contents[x-1]);
     bzero(temp_ip_addr, 15);
     j=0;
     k=0;
@@ -352,11 +355,11 @@ int get_vertex_number(char *ip){
 **/
 void set_ttl_to_default(int node){
 	if(node>=node_count){
-		printf("Invalid node number %d\n", node);
+		//("Invalid node number %d\n", node);
 		exit(1);
 	}
         graph[0][node]=1;
-        //printf("Setting deault ttl to node %s\n",neighbours[node].ip_addr);
+        ////("Setting deault ttl to node %s\n",neighbours[node].ip_addr);
 	routing_table[node].ttl = ttl;
 }
 
@@ -382,11 +385,11 @@ void interpret_advertisement(unsigned char *advertise_contents, int seconds){
   int i=0, destination_node;
   unsigned char ip[15];
   unsigned long get_cost=0, temp=0;
-  printf("\n***UPDATE RECEIVED***\n");
-	printf("Received data is\n");
+  //("\n***UPDATE RECEIVED***\n");
+	//("Received data is\n");
 	while(i<(node_count*8)){
-		sprintf(ip,"%u.%u.%u.%u",advertise_contents[i],advertise_contents[i+1],advertise_contents[i+2],advertise_contents[i+3]);
-		printf("ip is %s -->", ip);
+		//s//(ip,"%u.%u.%u.%u",advertise_contents[i],advertise_contents[i+1],advertise_contents[i+2],advertise_contents[i+3]);
+		//("ip is %s -->", ip);
     temp = advertise_contents[i+4];
     get_cost = (temp << 24);
     temp = advertise_contents[i+5];
@@ -395,27 +398,27 @@ void interpret_advertisement(unsigned char *advertise_contents, int seconds){
     get_cost = (temp<<8) | get_cost;
     temp = advertise_contents[i+7];
     get_cost = (temp) | get_cost;
-    printf("%lu\n",get_cost);
+    //("%lu\n",get_cost);
     if(i==0){
     	source_node = get_vertex_number(ip);
     	if(source_node == -1){
-    		printf("get_vertex_number returned -1\n");
+    		printf("source get_vertex_number returned -1\n");
     		exit(1);
     	}
     	set_ttl_to_default(source_node);
         graph[source_node][0] = 1;
     	graph[source_node][source_node] = 0;
-    	printf("source node is %d\n", source_node);
+    	//("source node is %d\n", source_node);
     }
     else
     {
     	destination_node = get_vertex_number(ip);
     	if(source_node == -1){
-    		printf("**ERROR*get_vertex_number retuned -1\n");
+    		//("**ERROR*get_vertex_number retuned -1\n");
     		exit(1);
     	}
     	//reduce_ttl(destination_node, seconds);
-    	printf("destination_node is %d\n", destination_node);
+    	//("destination_node is %d\n", destination_node);
     	graph[source_node][destination_node] = ((get_cost > infinity) ? infinity : get_cost);
     }
 		i+=8;
@@ -435,7 +438,7 @@ void send_advertisment(int i){
   		neighbour_addr.sin_addr.s_addr = inet_addr(neighbours[i].ip_addr);
   		neighbour_addr.sin_port = htons(port_no);
   		result = sendto(sock, advertise_contents, 8*node_count, 0, (struct sockaddr*)&neighbour_addr, sizeof(neighbour_addr));
-  		printf("sendto to ip address %s & port is %d is %d\n", neighbours[i].ip_addr, port_no, result);
+  		//("sendto to ip address %s & port is %d is %d\n", neighbours[i].ip_addr, port_no, result);
       free(advertise_contents);
   	}
   //}
@@ -447,9 +450,9 @@ void send_advertisment(int i){
 void receive_advertisement(){
 	int i, result;
 	char received_advertisement[node_count*8];	
-	printf("Waiting to receive update\n");
+	//("Waiting to receive update\n");
 	recvfrom(sock, received_advertisement, node_count*8, 0, (struct sockaddr*)&neighbour_addr, &neighbour_addr_length);
-	printf("***UPDATE RECEIVED***\n");
+	//("***UPDATE RECEIVED***\n");
 	interpret_advertisement(received_advertisement, 0);  //TODO: Look into this again
 }
 
@@ -491,7 +494,7 @@ void *periodic_update_function()
 		}
 		prepare_advertisement();
         //send_advertisment();
-        printf("\nSENDING FOLLOWING TABLE\n");
+        //("\nSENDING FOLLOWING TABLE\n");
         print_routing_table();
 		
 	}
@@ -502,15 +505,15 @@ void *periodic_update_function()
 **/
 void init_mutexes(){
  if(pthread_mutex_init(&update_mutex, NULL)!=0){
-  printf("mutex init failed for update\n");
+  //("mutex init failed for update\n");
   exit(1);
  }
  if(pthread_mutex_init(&bellman_mutex, NULL)!=0){
-  printf("mutex init failed for bellman\n");
+  //("mutex init failed for bellman\n");
   exit(1);
  }
  if(pthread_mutex_init(&adv_mutex, NULL)!=0){
-  printf("mutex init failed for advertisement\n");
+  //("mutex init failed for advertisement\n");
   exit(1);
  }
 }
@@ -529,7 +532,7 @@ int main(int argc, char* argv[]){
 	int result,th_ret1;
 	char *received_advertisement = (char*) malloc(100*sizeof(char));
 	if(argc!=7){
-		printf("Invalid number of arguments\n. Please pass 'Config_file_name port_no TTL infinity period split_horizon'\n");
+		//("Invalid number of arguments\n. Please pass 'Config_file_name port_no TTL infinity period split_horizon'\n");
 		exit(1);
 	}
   strcpy(config_file_name, argv[1]);
@@ -538,7 +541,7 @@ int main(int argc, char* argv[]){
   infinity = atoi(argv[4]);
   period = atoi(argv[5]);
   split_horizon = atoi(argv[6]);
-  printf(" Config file name %s\n port no %d\nTTL %d\ninfinity %ld\nperiod %d\nsplit_horizon %d\n", config_file_name, port_no, ttl, infinity, period, split_horizon);
+  //(" Config file name %s\n port no %d\nTTL %d\ninfinity %ld\nperiod %d\nsplit_horizon %d\n", config_file_name, port_no, ttl, infinity, period, split_horizon);
   read_config_file();
   intialise();
   received_advertisement = realloc(received_advertisement, (node_count * 8));
@@ -549,21 +552,21 @@ int main(int argc, char* argv[]){
 	  
 	  if(result<0)
 	  {
-		  printf("Nothing Received\n");
+		  //("Nothing Received\n");
 		  continue;
 	  }
 	  interpret_advertisement(received_advertisement, period);
       
 	  if(is_routing_table_changed == 1)
 	  {
-		  printf("***********Routing table has changed************\n");
+		  //("***********Routing table has changed************\n");
 		  prepare_advertisement();
 		  is_routing_table_changed=0;
 		  print_routing_table();
 	  }
     else
     {
-     printf("***ROUTING TABLE NOT CHANGED\n");
+     //("***ROUTING TABLE NOT CHANGED\n");
      print_routing_table();
     }
   }
@@ -595,12 +598,12 @@ void check_result(char* msg, int result)
 {
 if(result<0)
  {
-  printf("%s failed with value %d\n",msg, result);
+  //("%s failed with value %d\n",msg, result);
   perror(msg);
   exit(0);
  }
  else
  {
-  printf("%s successful with value %d\n", msg, result);
+  //("%s successful with value %d\n", msg, result);
  }
 }
