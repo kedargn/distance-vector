@@ -145,7 +145,7 @@ void print_array(){
  for(i=0;i<node_count;i++){
  	printf("%d\t",dist[i]);
  }
- printf("\nPi Array\n");
+ printf("\n\nPi Array\n");
  print_header();
  for(i=0;i<node_count;i++){
  	printf("%d\t",pi[i]);
@@ -193,7 +193,7 @@ void allocate(){
 **/
 void print_routing_table(){
 	int i;
-  printf("\n\nRouting table\n\n");
+  printf("\nRouting table\n\n");
 	printf("Node\t\tNext Hop\tcost\tTTL\tSN\n");
 	for(i=0;i<node_count;i++){
 		printf("%s\t%s\t%d\t%d\t%d\n", routing_table[i].destination, routing_table[i].next_hop, routing_table[i].cost, routing_table[i].ttl, routing_table[i].from);
@@ -356,7 +356,7 @@ void set_ttl_to_default(int node){
 		exit(1);
 	}
         graph[0][node]=1;
-        printf("Setting deault ttl to node %s\n",neighbours[node].ip_addr);
+        //printf("Setting deault ttl to node %s\n",neighbours[node].ip_addr);
 	routing_table[node].ttl = ttl;
 }
 
@@ -382,7 +382,7 @@ void interpret_advertisement(unsigned char *advertise_contents, int seconds){
   int i=0, destination_node;
   unsigned char ip[15];
   unsigned long get_cost=0, temp=0;
-
+  printf("\n***UPDATE RECEIVED***\n");
 	printf("Received data is\n");
 	while(i<(node_count*8)){
 		sprintf(ip,"%u.%u.%u.%u",advertise_contents[i],advertise_contents[i+1],advertise_contents[i+2],advertise_contents[i+3]);
@@ -491,7 +491,7 @@ void *periodic_update_function()
 		}
 		prepare_advertisement();
         //send_advertisment();
-        printf("SENDING TABLE\n");
+        printf("\nSENDING FOLLOWING TABLE\n");
         print_routing_table();
 		
 	}
