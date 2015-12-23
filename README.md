@@ -1,7 +1,5 @@
 # distance-vector
 
-to execute, run the following command on the terminal
+Implementation of distance vector routing algorithm. Uses Bellman Ford algorithm to calculate the shortest distance from to sourse node to all destination nodes. "Split horizon" implementation to avoid count-to-infinity problem(split horizon does not mitigate count-to-infinity if there are more than two nodes in a cycle).
 
-sh run_script.sh {config_file} {port_no} {TTL in seconds} {period in seconds} {split_horizon [0 or 1]}
-
-The above command would kill the process if it exists, compiles the code and runs with the arguments supplied
+To run the program, consult readme.pdf file.
